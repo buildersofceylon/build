@@ -181,42 +181,144 @@ a{text-decoration:none;color:inherit}
   transition:transform .3s var(--ease),box-shadow .3s,border-color .3s;
 }
 .service-row:hover .image-box{transform:translateY(-4px);box-shadow:0 24px 64px rgba(0,0,0,.7);border-color:rgba(255,255,255,.12)}
-.image-box img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;background:var(--surface)}
-
-/* Wipe clip-path on fixed image — bottom-left → top-right diagonal */
-.img-fixed{
-  clip-path:polygon(0% 100%,0% 100%,0% 100%);
-  will-change:clip-path;
-  animation:fixWipe 6s ease-in-out infinite;
-}
-@keyframes fixWipe{
-  0%,12%         {clip-path:polygon(0% 100%,0% 100%,0% 100%)}
-  /* BL corner → sweep diagonal toward TR, triangle grows */
-  55%            {clip-path:polygon(0% 100%,0%   0%,100% 100%)}
-  /* complete rectangle */
-  65%,78%        {clip-path:polygon(0% 100%,0%   0%,100%   0%,100% 100%)}
-  79%,100%       {clip-path:polygon(0% 100%,0% 100%,0%   100%)}
+.image-box img{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;display:block;background:var(--surface);
+  backface-visibility:hidden;
 }
 
-/* SVG overlay for the wipe line — injected per image-box by JS */
-.wipe-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6;overflow:visible}
-.wipe-svg line{stroke:#111;stroke-width:2;stroke-linecap:round;opacity:0}
+/* ── BEFORE / AFTER CINEMATIC DISSOLVE ───────────────────
+   Cycle: 8 s total
+     0–10%   : "broken" fully visible, "fixed" hidden
+     10–42%  : fixed image blooms in (opacity + gentle scale)
+     42–58%  : both fully visible — cross-fade overlap for richness
+     58–90%  : hold fixed image, broken fades out
+     90–100% : fixed dissolves away, broken returns
+   A golden shimmer sweeps across the fixed image as it reveals.
+───────────────────────────────────────────────────────── */
 
-/* Status tags */
-.img-status{position:absolute;top:11px;left:11px;z-index:10;display:flex;gap:5px;pointer-events:none}
-.stag{font-size:.55rem;font-weight:700;letter-spacing:.17em;text-transform:uppercase;padding:4px 9px;border-radius:3px;backdrop-filter:blur(8px)}
-.stag-broken{background:rgba(180,40,30,.8);color:#fff;animation:sOut 6s ease-in-out infinite}
-.stag-fixed{background:rgba(30,110,55,.85);color:#fff;opacity:0;transform:translateY(4px);animation:sIn 6s ease-in-out infinite}
-@keyframes sOut{0%,62%{opacity:1;transform:translateY(0)}67%,77%{opacity:0;transform:translateY(-5px)}80%,100%{opacity:1;transform:translateY(0)}}
-@keyframes sIn{0%,62%{opacity:0;transform:translateY(5px)}67%,77%{opacity:1;transform:translateY(0)}80%,100%{opacity:0;transform:translateY(5px)}}
+/* The broken image holds underneath; fades out while fixed is shown */
+.img-broken {
+  animation: brokenCycle 8s cubic-bezier(0.4,0,0.2,1) infinite;
+  will-change: opacity;
+  z-index: 1;
+}
+@keyframes brokenCycle {
+  0%, 8%   { opacity: 1 }
+  30%, 75% { opacity: 0 }
+  92%, 100%{ opacity: 1 }
+}
 
-/* stagger delays */
-.service-row:nth-child(1) .img-fixed,.service-row:nth-child(1) .stag-broken,.service-row:nth-child(1) .stag-fixed{animation-delay:0s}
-.service-row:nth-child(2) .img-fixed,.service-row:nth-child(2) .stag-broken,.service-row:nth-child(2) .stag-fixed{animation-delay:-1s}
-.service-row:nth-child(3) .img-fixed,.service-row:nth-child(3) .stag-broken,.service-row:nth-child(3) .stag-fixed{animation-delay:-2s}
-.service-row:nth-child(4) .img-fixed,.service-row:nth-child(4) .stag-broken,.service-row:nth-child(4) .stag-fixed{animation-delay:-3s}
-.service-row:nth-child(5) .img-fixed,.service-row:nth-child(5) .stag-broken,.service-row:nth-child(5) .stag-fixed{animation-delay:-4s}
-.service-row:nth-child(6) .img-fixed,.service-row:nth-child(6) .stag-broken,.service-row:nth-child(6) .stag-fixed{animation-delay:-5s}
+/* Fixed image: soft bloom in — scale down from slightly large, opacity up */
+.img-fixed {
+  opacity: 0;
+  transform: scale(1.03);
+  will-change: opacity, transform, filter;
+  z-index: 2;
+  animation: fixedBloom 8s cubic-bezier(0.4,0,0.2,1) infinite;
+}
+@keyframes fixedBloom {
+  0%, 8%   { opacity: 0;    transform: scale(1.035); filter: brightness(1.25) blur(3px) }
+  38%, 75% { opacity: 1;    transform: scale(1);     filter: brightness(1)    blur(0px) }
+  92%      { opacity: 0.04; transform: scale(1.01);  filter: brightness(1.1)  blur(1px) }
+  100%     { opacity: 0;    transform: scale(1.035); filter: brightness(1.25) blur(3px) }
+}
+
+/* Shimmer — a diagonal golden light beam that sweeps across on reveal */
+.image-box::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 20%,
+    rgba(212,168,67,0.22) 48%,
+    rgba(255,230,140,0.14) 52%,
+    transparent 80%
+  );
+  transform: translateX(-110%);
+  will-change: transform, opacity;
+  animation: shimmerSweep 8s cubic-bezier(0.4,0,0.2,1) infinite;
+  border-radius: 12px;
+}
+@keyframes shimmerSweep {
+  0%, 8%   { transform: translateX(-110%); opacity: 0   }
+  18%      { opacity: 1 }
+  40%      { transform: translateX(110%);  opacity: 0   }
+  100%     { transform: translateX(-110%); opacity: 0   }
+}
+
+/* Status tags — refined slide + blur entrance */
+.img-status {
+  position: absolute; top: 11px; left: 11px;
+  z-index: 10; display: flex; gap: 5px; pointer-events: none;
+}
+.stag {
+  font-size: .55rem; font-weight: 700; letter-spacing: .17em;
+  text-transform: uppercase; padding: 4px 9px; border-radius: 3px;
+  backdrop-filter: blur(8px);
+}
+.stag-broken {
+  background: rgba(180,40,30,.8); color: #fff;
+  animation: tagBrokenCycle 8s cubic-bezier(0.4,0,0.2,1) infinite;
+}
+.stag-fixed {
+  background: rgba(30,110,55,.85); color: #fff;
+  opacity: 0; transform: translateY(6px) scale(.92);
+  animation: tagFixedCycle 8s cubic-bezier(0.4,0,0.2,1) infinite;
+}
+@keyframes tagBrokenCycle {
+  0%, 10%  { opacity: 1; transform: translateY(0)   scale(1)   ; filter: blur(0)   }
+  28%      { opacity: 0; transform: translateY(-7px) scale(.88) ; filter: blur(2px) }
+  85%      { opacity: 0; transform: translateY(-7px) scale(.88) ; filter: blur(2px) }
+  95%,100% { opacity: 1; transform: translateY(0)   scale(1)   ; filter: blur(0)   }
+}
+@keyframes tagFixedCycle {
+  0%, 20%  { opacity: 0; transform: translateY(7px)  scale(.88) ; filter: blur(2px) }
+  36%      { opacity: 1; transform: translateY(0)    scale(1)   ; filter: blur(0)   }
+  80%      { opacity: 1; transform: translateY(0)    scale(1)   ; filter: blur(0)   }
+  92%      { opacity: 0; transform: translateY(-5px) scale(.92) ; filter: blur(2px) }
+  100%     { opacity: 0; transform: translateY(7px)  scale(.88) ; filter: blur(2px) }
+}
+
+/* Stagger each service row so they don't all pulse in sync */
+.service-row:nth-child(1) .img-broken,
+.service-row:nth-child(1) .img-fixed,
+.service-row:nth-child(1) .image-box::after,
+.service-row:nth-child(1) .stag-broken,
+.service-row:nth-child(1) .stag-fixed  { animation-delay:    0s }
+
+.service-row:nth-child(2) .img-broken,
+.service-row:nth-child(2) .img-fixed,
+.service-row:nth-child(2) .image-box::after,
+.service-row:nth-child(2) .stag-broken,
+.service-row:nth-child(2) .stag-fixed  { animation-delay: -1.33s }
+
+.service-row:nth-child(3) .img-broken,
+.service-row:nth-child(3) .img-fixed,
+.service-row:nth-child(3) .image-box::after,
+.service-row:nth-child(3) .stag-broken,
+.service-row:nth-child(3) .stag-fixed  { animation-delay: -2.66s }
+
+.service-row:nth-child(4) .img-broken,
+.service-row:nth-child(4) .img-fixed,
+.service-row:nth-child(4) .image-box::after,
+.service-row:nth-child(4) .stag-broken,
+.service-row:nth-child(4) .stag-fixed  { animation-delay: -4.0s  }
+
+.service-row:nth-child(5) .img-broken,
+.service-row:nth-child(5) .img-fixed,
+.service-row:nth-child(5) .image-box::after,
+.service-row:nth-child(5) .stag-broken,
+.service-row:nth-child(5) .stag-fixed  { animation-delay: -5.33s }
+
+.service-row:nth-child(6) .img-broken,
+.service-row:nth-child(6) .img-fixed,
+.service-row:nth-child(6) .image-box::after,
+.service-row:nth-child(6) .stag-broken,
+.service-row:nth-child(6) .stag-fixed  { animation-delay: -6.66s }
 
 /* ── PORTFOLIO ───────────────────────────────────────── */
 .portfolio{background:var(--surface);padding:7rem 3.5rem 8rem;position:relative;overflow:hidden;border-top:1px solid var(--border)}
@@ -416,8 +518,8 @@ a{text-decoration:none;color:inherit}
     </div>
     <div class="image-box">
       <div class="img-status"><span class="stag stag-broken">Broken</span><span class="stag stag-fixed">Fixed ✓</span></div>
-      <img src="images/Tap_broken.png" alt="Leaking tap" class="img-broken"/>
-      <img src="images/Tap_fixed.png"  alt="Fixed tap"   class="img-fixed"/>
+      <img src="images/Tap_broken.webp" alt="Leaking tap" class="img-broken"/>
+      <img src="images/Tap_fixed.webp"  alt="Fixed tap"   class="img-fixed"/>
     </div>
   </div>
 
@@ -435,8 +537,8 @@ a{text-decoration:none;color:inherit}
     </div>
     <div class="image-box">
       <div class="img-status"><span class="stag stag-broken">Broken</span><span class="stag stag-fixed">Fixed ✓</span></div>
-      <img src="images/Bulb_broken.png" alt="Burnt bulb"    class="img-broken"/>
-      <img src="images/Bulb_fixed.png"  alt="Working light" class="img-fixed"/>
+      <img src="images/Bulb_broken.webp" alt="Burnt bulb"    class="img-broken"/>
+      <img src="images/Bulb_fixed.webp"  alt="Working light" class="img-fixed"/>
     </div>
   </div>
 
@@ -454,8 +556,8 @@ a{text-decoration:none;color:inherit}
     </div>
     <div class="image-box">
       <div class="img-status"><span class="stag stag-broken">Broken</span><span class="stag stag-fixed">Fixed ✓</span></div>
-      <img src="images/AC_broken.png" alt="Broken AC" class="img-broken"/>
-      <img src="images/AC_fixed.png"  alt="Fixed AC"  class="img-fixed"/>
+      <img src="images/AC_broken.webp" alt="Broken AC" class="img-broken"/>
+      <img src="images/AC_fixed.webp"  alt="Fixed AC"  class="img-fixed"/>
     </div>
   </div>
 
@@ -473,8 +575,8 @@ a{text-decoration:none;color:inherit}
     </div>
     <div class="image-box">
       <div class="img-status"><span class="stag stag-broken">Before</span><span class="stag stag-fixed">After ✓</span></div>
-      <img src="images/Paint_broken.png" alt="Unpainted wall"     class="img-broken"/>
-      <img src="images/Paint_fixed.png"  alt="Painted wall"       class="img-fixed"/>
+      <img src="images/Paint_broken.webp" alt="Unpainted wall"     class="img-broken"/>
+      <img src="images/Paint_fixed.webp"  alt="Painted wall"       class="img-fixed"/>
     </div>
   </div>
 
@@ -492,8 +594,8 @@ a{text-decoration:none;color:inherit}
     </div>
     <div class="image-box">
       <div class="img-status"><span class="stag stag-broken">Before</span><span class="stag stag-fixed">After ✓</span></div>
-      <img src="images/Brick_Broken.png" alt="Construction before" class="img-broken"/>
-      <img src="images/Brick_fixed.png"  alt="Construction after"  class="img-fixed"/>
+      <img src="images/Brick_Broken.webp" alt="Construction before" class="img-broken"/>
+      <img src="images/Brick_fixed.webp"  alt="Construction after"  class="img-fixed"/>
     </div>
   </div>
 
@@ -511,8 +613,8 @@ a{text-decoration:none;color:inherit}
     </div>
     <div class="image-box">
       <div class="img-status"><span class="stag stag-broken">Broken</span><span class="stag stag-fixed">Fixed ✓</span></div>
-      <img src="images/TV_broken.png" alt="Broken TV" class="img-broken"/>
-      <img src="images/Tv_Fixed.png"  alt="Fixed TV"  class="img-fixed"/>
+      <img src="images/TV_broken.webp" alt="Broken TV" class="img-broken"/>
+      <img src="images/Tv_Fixed.webp"  alt="Fixed TV"  class="img-fixed"/>
     </div>
   </div>
 
@@ -562,57 +664,30 @@ a{text-decoration:none;color:inherit}
 </footer>
 
 <script>
-/* ─── PORTFOLIO LOADER ──────────────────────────────────────────────────────
-   Probes ./portfolio/1.jpg, ./portfolio/1.jpeg … ./portfolio/1.webm via HEAD
-   requests, stopping at the first 404 on a new index number.
-   Each found file is rendered in a 3-column CSS grid; spans are applied after
-   the media loads and its natural dimensions are known:
-     • width/height > 1.5  → span 2 columns
-     • height/width > 1.5  → span 2 rows
-     • otherwise           → 1 × 1 cell
+/* ─── PORTFOLIO LOADER (hardcoded) ─────────────────────────────────────────
+   Files are listed directly — no fetch probing needed, works on GitHub Pages.
+   To add more photos: just add the filename to the FILES array below.
 ─────────────────────────────────────────────────────────────────────────── */
 (function() {
-  const EXTS = ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm'];
-  const VIDEO_EXTS = new Set(['mp4', 'webm']);
-  const BASE = './portfolio/';
+  const FILES = [
+    '2.webp','3.webp','4.webp','5.webp','6.webp','7.webp',
+    '8.webp','9.webp','10.webp','11.webp','12.webp','13.webp',
+    '14.webp','15.webp','17.webp','18.webp','19.webp'
+  ];
+  const VIDEO_EXTS = new Set(['mp4','webm']);
   const RATIO = 1.5;
 
-  /* Resolve the path of explore.html so ./portfolio/ is always relative to it,
-     even if the page is served from a sub-path.                                */
   function portfolioBase() {
     const loc = window.location.pathname;
     const dir = loc.substring(0, loc.lastIndexOf('/') + 1);
     return dir + 'portfolio/';
   }
 
-  async function probeFile(index) {
-    const base = portfolioBase();
-    for (const ext of EXTS) {
-      const url = `${base}${index}.${ext}`;
-      try {
-        const r = await fetch(url, { method: 'HEAD' });
-        if (r.ok) return { url, ext };
-        if (r.status === 404) {
-          /* Any 404 on this index means we stop trying extensions here.
-             We break out and signal "not found" for this index.             */
-          break;
-        }
-      } catch (_) {
-        /* Network error — treat same as 404 for this extension.              */
-        break;
-      }
-    }
-    return null;
-  }
-
   function applySpan(card, w, h) {
     if (w && h) {
       const ratio = w / h;
-      if (ratio > RATIO) {
-        card.classList.add('span-col');
-      } else if (1 / ratio > RATIO) {
-        card.classList.add('span-row');
-      }
+      if (ratio > RATIO) card.classList.add('span-col');
+      else if (1 / ratio > RATIO) card.classList.add('span-row');
     }
     card.classList.remove('loading');
   }
@@ -620,7 +695,6 @@ a{text-decoration:none;color:inherit}
   function buildCard(url, ext, index) {
     const card = document.createElement('div');
     card.className = 'port-card loading';
-
     const badge = document.createElement('div');
     badge.className = 'port-card-badge';
     badge.textContent = `#${index}`;
@@ -628,71 +702,33 @@ a{text-decoration:none;color:inherit}
 
     if (VIDEO_EXTS.has(ext)) {
       const vid = document.createElement('video');
-      vid.src = url;
-      vid.controls = true;
-      vid.muted = true;
-      vid.loop = true;
-      vid.playsInline = true;
+      vid.src = url; vid.controls = true; vid.muted = true;
+      vid.loop = true; vid.playsInline = true;
       vid.setAttribute('preload', 'metadata');
-      vid.addEventListener('loadedmetadata', () => {
-        applySpan(card, vid.videoWidth, vid.videoHeight);
-      });
+      vid.addEventListener('loadedmetadata', () => applySpan(card, vid.videoWidth, vid.videoHeight));
       vid.addEventListener('error', () => card.classList.remove('loading'));
       card.appendChild(vid);
     } else {
       const img = document.createElement('img');
-      img.src = url;
-      img.alt = `Portfolio item ${index}`;
-      img.decoding = 'async';
-      img.loading = 'lazy';
-      img.addEventListener('load', () => {
-        applySpan(card, img.naturalWidth, img.naturalHeight);
-      });
+      img.src = url; img.alt = `Portfolio item ${index}`;
+      img.decoding = 'async'; img.loading = 'lazy';
+      img.addEventListener('load', () => applySpan(card, img.naturalWidth, img.naturalHeight));
       img.addEventListener('error', () => card.classList.remove('loading'));
       card.appendChild(img);
     }
-
     return card;
   }
 
-  async function loadPortfolio() {
+  function loadPortfolio() {
     const grid = document.getElementById('portfolioGrid');
     if (!grid) return;
-
-    /* Show a spinner while probing */
-    const spinner = document.createElement('div');
-    spinner.className = 'port-loading';
-    spinner.innerHTML = '<div class="port-spinner"></div><span>Loading portfolio…</span>';
-    grid.appendChild(spinner);
-
-    let count = 0;
-    let index = 1;
-
-    while (true) {
-      const result = await probeFile(index);
-      if (!result) break;            /* 404 → nothing more to load */
-      const card = buildCard(result.url, result.ext, index);
-      grid.appendChild(card);
-      count++;
-      index++;
-    }
-
-    /* Remove spinner */
-    spinner.remove();
-
-    /* Empty state */
-    if (count === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'port-empty';
-      empty.innerHTML = `
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        <p>Portfolio photos coming soon</p>`;
-      grid.appendChild(empty);
-    }
+    const base = portfolioBase();
+    FILES.forEach((filename, i) => {
+      const ext = filename.split('.').pop().toLowerCase();
+      grid.appendChild(buildCard(base + filename, ext, i + 1));
+    });
   }
 
-  /* Kick off once the DOM is ready */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', loadPortfolio);
   } else {
@@ -709,84 +745,8 @@ nav.classList.toggle('scrolled',window.scrollY>55);
 const ro=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('on');ro.unobserve(e.target)}}),{threshold:.1,rootMargin:'0px 0px -36px 0px'});
 document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
 
-/* ─── WIPE LINE via JS + SVG ───────────────────────────────────────
-   The clip-path animates: polygon(0% 100%, 0% 0%, 100% 100%)
-   at the 55% keyframe → leading diagonal edge goes from
-   top-left (0%,0%) to bottom-right (100%,100%).
-   We track that edge in real pixel coords and draw a <line> on it.
-─────────────────────────────────────────────────────────────────── */
-const CYCLE = 6000; // ms — must match fixWipe animation duration
+/* ─── WIPE LINE REMOVED ─────────────────────────────────────────── */
 
-document.querySelectorAll('.image-box').forEach((box, idx) => {
-  // Inject SVG overlay
-  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('class','wipe-svg');
-  svg.setAttribute('viewBox','0 0 100 100');
-  svg.setAttribute('preserveAspectRatio','none');
-  const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-  svg.appendChild(line);
-  box.appendChild(svg);
-
-  // Delay matches animation-delay on .img-fixed for each row
-  const delayMs = -idx * 1000; // 0, -1000, -2000 … but we want phase offset
-  // Phase: where in the 6s cycle does THIS card start?
-  const PHASE_OFFSET = ((idx * 1000) % CYCLE); // ms into the cycle
-
-  function draw() {
-    // Current time within the 6s cycle (0 → CYCLE)
-    const now = (performance.now() + PHASE_OFFSET) % CYCLE;
-    const t = now / CYCLE; // 0 → 1
-
-    // Keyframe schedule (mirrors fixWipe @keyframes):
-    // 0–0.12  : hidden (clip collapsed)
-    // 0.12–0.55: wipe sweeps — leading edge is BL→TR diagonal
-    // 0.55–0.65: wipe continues off-screen (full rect already)
-    // 0.65–0.78: full rect, hold
-    // 0.78–1  : hidden
-
-    const visible = t >= 0.12 && t < 0.68;
-
-    if (!visible) {
-      line.style.opacity = '0';
-    } else {
-      // Local progress within the active wipe window [0.12 → 0.60]
-      const wipeStart = 0.12, wipeEnd = 0.60;
-      const p = Math.min(1, (t - wipeStart) / (wipeEnd - wipeStart)); // 0→1
-
-      // The clip-path triangle has its diagonal edge from:
-      //   point A: top-left corner   (0%, 0%)  — fixed
-      //   point B: bottom-right area (100%, 100%) — swept
-      // The leading edge is a LINE from TL(0,0) toward BR(100,100).
-      // We parameterise the sweep so that at p=0 the line is at TL corner
-      // (collapsed to a point) and at p=1 the line has swept to BR corner.
-      //
-      // Actual clip polygon at fraction p (in % coords, viewBox 0–100):
-      //   P0 = BL = (0, 100)  — anchor
-      //   P1 = TL = (0, 0)    — anchor after phase 1 starts
-      //   P2 = sweeping point along bottom edge = (p*100, 100)
-      //
-      // The diagonal wipe edge goes from TL(0,0) to P2(p*100, 100).
-      // So the line we draw = from (0,0) to (p*100, 100) in viewBox coords.
-
-      const x1 = 0,   y1 = 0;
-      const x2 = p*100, y2 = 100;
-
-      line.setAttribute('x1', x1);
-      line.setAttribute('y1', y1);
-      line.setAttribute('x2', x2);
-      line.setAttribute('y2', y2);
-      line.setAttribute('stroke-width', '1.5');  // in viewBox units
-
-      // Fade in/out at edges of visible window
-      const fadeIn  = Math.min(1, (t - 0.12) / 0.04);
-      const fadeOut = Math.min(1, (0.68 - t) / 0.06);
-      line.style.opacity = String(Math.min(fadeIn, fadeOut));
-    }
-
-    requestAnimationFrame(draw);
-  }
-  requestAnimationFrame(draw);
-});
 </script>
 
 </body>
